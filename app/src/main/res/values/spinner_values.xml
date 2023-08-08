@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="distance">
+        <item>1 m</item>
+        <item>2 m</item>
+        <item>3 m</item>
+        <item>4 m</item>
+        <item>5 m</item>
+        <item>6 m</item>
+        <item>7 m</item>
+        <item>8 m</item>
+        <item>9 m</item>
+        <item>10 m</item>
+    </string-array>
+
+    <string-array name="refresh_interval">
+        <item>300 ms</item>
+        <item>500 ms</item>
+        <item>1 s</item>
+        <item>2 s</item>
+        <item>3 s</item>
+        <item>4 s</item>
+        <item>5 s</item>
+    </string-array>
+
+    <string-array name="scan_duration">
+        <item>1 minute</item>
+        <item>3 minutes</item>
+        <item>5 minutes</item>
+        <item>10 minutes</item>
+        <item>15 minutes</item>
+    </string-array>
+</resources>
