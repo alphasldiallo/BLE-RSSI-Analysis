@@ -11,6 +11,8 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Spinner;
 
+import com.example.rssi_distance.helpers.Parameters;
+
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -26,18 +28,24 @@ public class MainActivity extends AppCompatActivity {
         AtomicInteger interval = new AtomicInteger();
         AtomicInteger duration = new AtomicInteger();
 
-        Spinner spinner_distance = (Spinner) findViewById(R.id.distance_spinner);
-        Spinner spinner_interval = (Spinner) findViewById(R.id.interval);
-        Spinner spinner_duration = (Spinner) findViewById(R.id.duration);
-        Button scan = (Button) findViewById(R.id.start_scan);
-        EditText beacon_address = (EditText) findViewById(R.id.beacon_address);
+        Spinner spinner_distance = findViewById(R.id.distance_spinner);
+        Spinner spinner_interval = findViewById(R.id.interval);
+        Spinner spinner_duration = findViewById(R.id.duration);
+        Button scan = findViewById(R.id.start_scan);
+        EditText beacon_address = findViewById(R.id.beacon_address);
 
         spinner_distance.setAdapter(ArrayAdapter.createFromResource(this, R.array.distance, android.R.layout.simple_spinner_dropdown_item));
         spinner_interval.setAdapter(ArrayAdapter.createFromResource(this, R.array.refresh_interval, android.R.layout.simple_spinner_dropdown_item));
         spinner_duration.setAdapter(ArrayAdapter.createFromResource(this, R.array.scan_duration, android.R.layout.simple_spinner_dropdown_item));
 
+        // Convert beaconsToTrack to a string
+        StringBuilder beaconsToTrackString = new StringBuilder();
+        for (EddystoneBeacon beacon : Parameters.beaconsToTrack) {
+            beaconsToTrackString.append(beacon.toString()).append(" - ");
+        }
 
-        beacon_address.setText(tracked_beacon_address);
+        beacon_address.setText(beaconsToTrackString.toString());
+        beacon_address.setEnabled(false);
 
         // add a listener to the button
         scan.setOnClickListener(v -> {

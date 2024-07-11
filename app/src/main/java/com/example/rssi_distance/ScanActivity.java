@@ -1,6 +1,8 @@
 package com.example.rssi_distance;
 
-import static com.example.rssi_distance.helpers.Parameters.tracked_beacon_address;
+import static com.example.rssi_distance.helpers.Parameters.EDDYSTONE_UID_UUID;
+import static com.example.rssi_distance.helpers.Parameters.LOG_TAG;
+import static com.example.rssi_distance.helpers.Parameters.beaconsToTrack;
 
 import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothAdapter;
@@ -18,7 +20,9 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.rssi_distance.helpers.DataFileWriter;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -33,6 +37,8 @@ public class ScanActivity extends AppCompatActivity {
 
     private final List<String[]> rssiData = new ArrayList<>();
     private final String[] headerScan = {"distance", "rssi"};
+    public TextView signals_found;
+    public TextView rssi;
 
     @SuppressLint("SetTextI18n")
     @Override
@@ -41,10 +47,12 @@ public class ScanActivity extends AppCompatActivity {
         setContentView(R.layout.activity_scan);
 
         infiniteScan();
+        TextView remaining_time = findViewById(R.id.remaining_time);
+        TextView scan_distance = findViewById(R.id.scan_distance_value);
+        Button stop_scan = findViewById(R.id.stop_scan);
 
-        TextView remaining_time = (TextView) findViewById(R.id.remaining_time);
-        TextView scan_distance = (TextView) findViewById(R.id.scan_distance_value);
-        Button stop_scan = (Button) findViewById(R.id.stop_scan);
+         signals_found = findViewById(R.id.signals);
+         rssi = findViewById(R.id.rssi);
 
         // Updating the UI
         int duration = Integer.parseInt(getIntent().getStringExtra("duration"));
@@ -57,7 +65,7 @@ public class ScanActivity extends AppCompatActivity {
 
        // Create a countdown timer and display on remaining_time
         Timer t = new Timer();
-        t.scheduleAtFixedRate(new TimerTask() {
+        t.schedule(new TimerTask() {
             int count = duration * 60;
             @Override
             public void run() {
@@ -90,20 +98,24 @@ public class ScanActivity extends AppCompatActivity {
         dataFileWriter.writeToFiles(filename, "RSSI_Analysis", this.headerScan, this.rssiData);
     }
 
-    private List<ScanFilter> getFilters(){
-
-        ScanFilter rssiFilter = new ScanFilter.Builder()
-                .setDeviceAddress(tracked_beacon_address)
+    /**
+     * @return This function is used to filter the scan results to only show Eddystone beacons
+     */
+    private List<ScanFilter> getEddystoneFilters(){
+        ScanFilter filter = new ScanFilter.Builder()
+                .setServiceUuid(EDDYSTONE_UID_UUID)
                 .build();
         List<ScanFilter> filters = new ArrayList<>();
-        filters.add(rssiFilter);
+        filters.add(filter);
         return filters;
     }
 
     @SuppressLint("MissingPermission")
     private void infiniteScan(){
         Log.d("ble_test", "Infinite scanning started");
-        bluetoothLeScanner.startScan(getFilters(), getScanSettings(false), scanCallback);
+
+
+        bluetoothLeScanner.startScan(getEddystoneFilters(), getScanSettings(false), scanCallback);
     }
 
     private final ScanCallback scanCallback = new ScanCallback() {
@@ -111,15 +123,44 @@ public class ScanActivity extends AppCompatActivity {
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
             Log.d("ble_test", "Signal found: "+ result.getRssi());
-            TextView signals_found = (TextView) findViewById(R.id.signals);
-            TextView rssi = (TextView) findViewById(R.id.rssi);
+            Log.d(LOG_TAG, "Scan result: " + result.toString());
 
-            int number_of_signal_found = Integer.parseInt(String.valueOf(signals_found.getText()));
-            signals_found.setText(String.valueOf(number_of_signal_found+1));
-            rssi.setText(String.valueOf(result.getRssi()));
+            byte[] serviceData = result.getScanRecord().getServiceData(EDDYSTONE_UID_UUID);
+            if (serviceData != null && serviceData.length > 18) {
+                // Convert the byte array range (2, 18) to a string
+                byte[] namespaceBytes = Arrays.copyOfRange(serviceData, 2, 12);
+                byte[] instanceBytes = Arrays.copyOfRange(serviceData, 12, 18);
+                String namespace = bytesToHex(namespaceBytes);
+                String instance = bytesToHex(instanceBytes);
+                EddystoneBeacon foundBeacon = new EddystoneBeacon(namespace, instance);
+                for (EddystoneBeacon beacon : beaconsToTrack) {
+                    if (beacon.equals(foundBeacon)) {
+                        Log.d(LOG_TAG, "Beacon found: " + beacon.getNamespace() + " " + beacon.getInstance());
 
-            rssiData.add(new String[]{getIntent().getStringExtra("distance"), String.valueOf(result.getRssi())});
+                        int number_of_signal_found = Integer.parseInt(String.valueOf(signals_found.getText()));
+                        signals_found.setText(String.valueOf(number_of_signal_found+1));
+                        rssi.setText(String.valueOf(result.getRssi()));
 
+                        rssiData.add(new String[]{getIntent().getStringExtra("distance"), String.valueOf(result.getRssi())});
+                    }
+                }
+            }
+
+
+        }
+
+        @Override
+        public void onBatchScanResults(List<ScanResult> results) {
+            // Handle batch scan results
+            for (ScanResult result : results) {
+                Log.d(LOG_TAG, "Batch scan result: " + result.toString());
+            }
+        }
+
+        @Override
+        public void onScanFailed(int errorCode) {
+            // Handle scan failure
+            Log.e(LOG_TAG, "Scan failed with error: " + errorCode);
         }
 
     };
@@ -127,8 +168,27 @@ public class ScanActivity extends AppCompatActivity {
     public static ScanSettings getScanSettings(Boolean legacy){
         return new ScanSettings.Builder()
                 .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
-                .setLegacy(legacy)
+                .setLegacy(true)
                 .setMatchMode(ScanSettings.MATCH_MODE_AGGRESSIVE)
                 .build();
     }
+
+    private byte[] hexStringToByteArray(String s) {
+        int len = s.length();
+        byte[] data = new byte[len / 2];
+        for (int i = 0; i < len; i += 2) {
+            data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
+                    + Character.digit(s.charAt(i + 1), 16));
+        }
+        return data;
+    }
+
+    private String bytesToHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for (byte b : bytes) {
+            sb.append(String.format("%02X", b));
+        }
+        return sb.toString();
+    }
+
 }
