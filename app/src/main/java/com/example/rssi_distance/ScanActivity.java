@@ -20,7 +20,6 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.rssi_distance.helpers.DataFileWriter;
 
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -140,7 +139,6 @@ public class ScanActivity extends AppCompatActivity {
                         int number_of_signal_found = Integer.parseInt(String.valueOf(signals_found.getText()));
                         signals_found.setText(String.valueOf(number_of_signal_found+1));
                         rssi.setText(String.valueOf(result.getRssi()));
-
                         rssiData.add(new String[]{getIntent().getStringExtra("distance"), String.valueOf(result.getRssi())});
                     }
                 }
